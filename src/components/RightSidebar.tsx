@@ -1,18 +1,20 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Concept, CATEGORY_META } from "@/lib/types";
+import { CATEGORY_META } from "@/lib/types";
+import { ConceptSummary } from "@/lib/concepts";
 
 interface RightSidebarProps {
-  concepts: Concept[];
+  totalCount: number;
+  suggestionPool: ConceptSummary[];
   searchQuery: string;
   onSearch: (query: string) => void;
 }
 
-function pickSuggestions(concepts: Concept[]): Concept[] {
+function pickSuggestions(pool: ConceptSummary[]): ConceptSummary[] {
   const seen = new Set<string>();
-  const picks: Concept[] = [];
-  const shuffled = [...concepts].sort(() => Math.random() - 0.5);
+  const picks: ConceptSummary[] = [];
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
   for (const c of shuffled) {
     if (!seen.has(c.category)) {
       seen.add(c.category);
@@ -23,13 +25,12 @@ function pickSuggestions(concepts: Concept[]): Concept[] {
   return picks;
 }
 
-// Search bar + suggested concepts
-export function RightSidebar({ concepts, searchQuery, onSearch }: RightSidebarProps) {
-  const [suggestions, setSuggestions] = useState(() => pickSuggestions(concepts));
+export function RightSidebar({ totalCount, suggestionPool, searchQuery, onSearch }: RightSidebarProps) {
+  const [suggestions, setSuggestions] = useState(() => pickSuggestions(suggestionPool));
 
   const reshuffle = useCallback(() => {
-    setSuggestions(pickSuggestions(concepts));
-  }, [concepts]);
+    setSuggestions(pickSuggestions(suggestionPool));
+  }, [suggestionPool]);
 
   return (
     <div className="sticky top-0 h-screen py-3 space-y-4">
@@ -103,7 +104,7 @@ export function RightSidebar({ concepts, searchQuery, onSearch }: RightSidebarPr
           <div className="flex justify-between">
             <span className="text-[var(--muted)]">Total concepts</span>
             <span className="text-[var(--foreground)] font-semibold">
-              {concepts.length}+
+              {totalCount}+
             </span>
           </div>
           <div className="flex justify-between">

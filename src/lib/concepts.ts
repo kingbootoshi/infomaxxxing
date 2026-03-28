@@ -36,6 +36,27 @@ export function getCategories(): { category: Category; count: number }[] {
     .sort((a, b) => b.count - a.count);
 }
 
+export function getTotalCount(): number {
+  return concepts.length;
+}
+
+export interface ConceptSummary {
+  id: string;
+  term: string;
+  category: Category;
+  oneLiner: string;
+}
+
+export function getSuggestionPool(size = 30): ConceptSummary[] {
+  const pool = pickRandom(concepts, size);
+  return pool.map(({ id, term, category, oneLiner }) => ({
+    id,
+    term,
+    category,
+    oneLiner,
+  }));
+}
+
 export function searchConcepts(query: string): Concept[] {
   const q = query.toLowerCase();
   return concepts.filter(
