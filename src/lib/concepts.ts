@@ -1,43 +1,29 @@
 import { concepts } from "@/data/concepts";
 import { Category, Concept } from "@/lib/types";
 
-// Shuffle using Fisher-Yates
-function shuffle<T>(array: T[]): T[] {
-  const a = [...array];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+// Pick N random concepts without repeating within the same batch
+function pickRandom(source: Concept[], count: number): Concept[] {
+  const pool = [...source];
+  const result: Concept[] = [];
+  for (let i = 0; i < count && pool.length > 0; i++) {
+    const idx = Math.floor(Math.random() * pool.length);
+    result.push(pool[idx]);
+    pool.splice(idx, 1);
   }
-  return a;
-}
-
-let shuffled: Concept[] | null = null;
-
-function getShuffled(): Concept[] {
-  if (!shuffled) {
-    shuffled = shuffle(concepts);
-  }
-  return shuffled;
+  return result;
 }
 
 export function getConcepts(
-  cursor: number,
+  _cursor: number,
   limit: number,
   category?: Category
 ): { items: Concept[]; nextCursor: number | null } {
   const source = category
-    ? getShuffled().filter((c) => c.category === category)
-    : getShuffled();
+    ? concepts.filter((c) => c.category === category)
+    : concepts;
 
-  // Wrap around for infinite scroll
-  const items: Concept[] = [];
-  for (let i = 0; i < limit; i++) {
-    const idx = (cursor + i) % source.length;
-    items.push(source[idx]);
-  }
-
-  const nextCursor = cursor + limit;
-  return { items, nextCursor };
+  const items = pickRandom(source, limit);
+  return { items, nextCursor: 1 };
 }
 
 export function getCategories(): { category: Category; count: number }[] {
