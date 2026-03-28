@@ -104,7 +104,18 @@ export function ConceptCard({ concept, onSelect }: ConceptCardProps) {
             </span>
 
             {/* Share button */}
-            <button className="flex items-center text-[var(--muted)] hover:text-[var(--accent)] transition-colors group">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const url = `${window.location.origin}?post=${encodeURIComponent(concept.id)}`;
+                if (navigator.share) {
+                  navigator.share({ title: `${concept.term} - infomaxxxing`, url }).catch(() => {});
+                } else {
+                  navigator.clipboard.writeText(url);
+                }
+              }}
+              className="flex items-center text-[var(--muted)] hover:text-[var(--accent)] transition-colors group"
+            >
               <div className="p-1.5 rounded-full group-hover:bg-[var(--accent)]/10 transition-colors">
                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                   <path d="M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41l-3.3 3.3-1.41-1.42L12 2.59zM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5C4.11 21 3 19.88 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2z" />

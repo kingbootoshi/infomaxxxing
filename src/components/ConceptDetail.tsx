@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Concept, CATEGORY_META } from "@/lib/types";
 import { CategoryIcon } from "./CategoryIcon";
 
@@ -23,6 +24,23 @@ interface ConceptDetailProps {
 
 export function ConceptDetail({ concept, onBack, onSelectRelated }: ConceptDetailProps) {
   const meta = CATEGORY_META[concept.category];
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = `${window.location.origin}?post=${encodeURIComponent(concept.id)}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `${concept.term} - infomaxxxing`, url });
+        return;
+      } catch {
+        // user cancelled or share failed, fall through to clipboard
+      }
+    }
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -85,19 +103,24 @@ export function ConceptDetail({ concept, onBack, onSelectRelated }: ConceptDetai
             ))}
           </div>
 
-          {/* Timestamp row - like X */}
-          <div className="flex items-center gap-1 mt-3 pt-3 border-t border-[var(--border)] text-[var(--muted)] text-[15px]">
+          {/* Info row - category, related count, share */}
+          <div className="flex items-center gap-1 mt-3 pt-3 pb-3 border-t border-b border-[var(--border)] text-[var(--muted)] text-[15px]">
             <span style={{ color: meta.color }} className="font-medium">{meta.label}</span>
             <span className="mx-1">&middot;</span>
             <span>{concept.relatedTerms.length} related</span>
-          </div>
-
-          {/* Action bar */}
-          <div className="flex items-center justify-around py-2 border-t border-b border-[var(--border)] mt-2">
-            <button className="text-[var(--muted)] hover:text-[var(--accent)] transition-colors p-2 rounded-full hover:bg-[var(--accent)]/10">
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                <path d="M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41l-3.3 3.3-1.41-1.42L12 2.59zM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5C4.11 21 3 19.88 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2z" />
-              </svg>
+            <button
+              onClick={handleShare}
+              className="ml-auto text-[var(--muted)] hover:text-[var(--accent)] transition-colors p-1.5 rounded-full hover:bg-[var(--accent)]/10 relative"
+            >
+              {copied ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-[18px] h-[18px]">
+                  <path d="M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41l-3.3 3.3-1.41-1.42L12 2.59zM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5C4.11 21 3 19.88 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2z" />
+                </svg>
+              )}
             </button>
           </div>
         </div>

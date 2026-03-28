@@ -70,6 +70,10 @@ export function getInitialSuggestions(pool: ConceptSummary[]): ConceptSummary[] 
   return picks;
 }
 
+export function getConceptById(id: string): Concept | undefined {
+  return concepts.find((c) => c.id === id);
+}
+
 export function searchConcepts(query: string): Concept[] {
   const q = query.toLowerCase();
   return concepts.filter(

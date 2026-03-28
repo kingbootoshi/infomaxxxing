@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Category, Concept } from "@/lib/types";
 import { CATEGORY_META } from "@/lib/types";
 import { ConceptSummary } from "@/lib/concepts";
@@ -32,14 +32,47 @@ export function HomeClient({
   const savedScrollRef = useRef(0);
   const progress = useProgress();
 
+  // Load post from ?post= query param on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const postId = params.get("post");
+    if (!postId) return;
+    fetch(`/api/concept?id=${encodeURIComponent(postId)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.item) {
+          setSelectedConcept(data.item);
+          progress.markSeen(data.item.id, data.item.term, data.item.category);
+        }
+      })
+      .catch(() => {});
+    const onPopState = () => {
+      const p = new URLSearchParams(window.location.search);
+      const id = p.get("post");
+      if (!id) {
+        setSelectedConcept(null);
+      } else {
+        fetch(`/api/concept?id=${encodeURIComponent(id)}`)
+          .then((r) => r.json())
+          .then((d) => { if (d.item) setSelectedConcept(d.item); })
+          .catch(() => {});
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSelectConcept = useCallback((concept: Concept) => {
     if (scrollRef.current) savedScrollRef.current = scrollRef.current.scrollTop;
     setSelectedConcept(concept);
     progress.markSeen(concept.id, concept.term, concept.category);
+    window.history.pushState(null, "", `?post=${encodeURIComponent(concept.id)}`);
   }, [progress]);
 
   const handleBack = useCallback(() => {
     setSelectedConcept(null);
+    window.history.pushState(null, "", window.location.pathname);
     requestAnimationFrame(() => {
       if (scrollRef.current) scrollRef.current.scrollTop = savedScrollRef.current;
     });
@@ -55,6 +88,7 @@ export function HomeClient({
         ) || data.items[0];
         setSelectedConcept(match);
         progress.markSeen(match.id, match.term, match.category);
+        window.history.pushState(null, "", `?post=${encodeURIComponent(match.id)}`);
       }
     } catch {
       // silently fail
