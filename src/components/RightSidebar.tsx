@@ -1,15 +1,35 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { Concept, CATEGORY_META } from "@/lib/types";
 
 interface RightSidebarProps {
   concepts: Concept[];
+  searchQuery: string;
+  onSearch: (query: string) => void;
 }
 
-// Static search bar + trending concepts
-export function RightSidebar({ concepts }: RightSidebarProps) {
-  // Pick a few random concepts as "trending"
-  const trending = concepts.slice(0, 5);
+function pickSuggestions(concepts: Concept[]): Concept[] {
+  const seen = new Set<string>();
+  const picks: Concept[] = [];
+  const shuffled = [...concepts].sort(() => Math.random() - 0.5);
+  for (const c of shuffled) {
+    if (!seen.has(c.category)) {
+      seen.add(c.category);
+      picks.push(c);
+    }
+    if (picks.length >= 5) break;
+  }
+  return picks;
+}
+
+// Search bar + suggested concepts
+export function RightSidebar({ concepts, searchQuery, onSearch }: RightSidebarProps) {
+  const [suggestions, setSuggestions] = useState(() => pickSuggestions(concepts));
+
+  const reshuffle = useCallback(() => {
+    setSuggestions(pickSuggestions(concepts));
+  }, [concepts]);
 
   return (
     <div className="sticky top-0 h-screen py-3 space-y-4">
@@ -25,20 +45,33 @@ export function RightSidebar({ concepts }: RightSidebarProps) {
         <input
           type="text"
           placeholder="Search concepts"
-          className="w-full bg-[var(--card)] text-[var(--foreground)] placeholder-[var(--muted)] rounded-full py-2.5 pl-10 pr-4 text-[15px] border border-transparent focus:border-[var(--accent)] focus:bg-transparent outline-none transition-colors"
+          value={searchQuery}
+          onChange={(e) => onSearch(e.target.value)}
+          className="w-full bg-[var(--card)] text-[var(--foreground)] placeholder-[var(--muted)] rounded-full py-2.5 pl-10 pr-8 text-[15px] border border-transparent focus:border-[var(--accent)] focus:bg-transparent outline-none transition-colors"
         />
+        {searchQuery && (
+          <button
+            onClick={() => onSearch("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+              <path d="M18.3 5.71a1 1 0 00-1.42 0L12 10.59 7.12 5.71a1 1 0 00-1.42 1.42L10.59 12l-4.89 4.88a1 1 0 001.42 1.42L12 13.41l4.88 4.89a1 1 0 001.42-1.42L13.41 12l4.89-4.88a1 1 0 000-1.41z" />
+            </svg>
+          </button>
+        )}
       </div>
 
-      {/* Trending / What to learn */}
+      {/* What to learn - suggestions */}
       <div className="bg-[var(--card)] rounded-2xl overflow-hidden">
         <h3 className="px-4 py-3 text-[20px] font-bold text-[var(--foreground)]">
           What to learn
         </h3>
-        {trending.map((concept) => {
+        {suggestions.map((concept) => {
           const meta = CATEGORY_META[concept.category];
           return (
             <div
               key={concept.id}
+              onClick={() => onSearch(concept.term)}
               className="px-4 py-3 hover:bg-[var(--hover)] transition-colors cursor-pointer border-t border-[var(--border)]"
             >
               <p className="text-[13px] text-[var(--muted)]">
@@ -53,7 +86,10 @@ export function RightSidebar({ concepts }: RightSidebarProps) {
             </div>
           );
         })}
-        <div className="px-4 py-3 text-[var(--accent)] text-[15px] hover:bg-[var(--hover)] transition-colors cursor-pointer border-t border-[var(--border)]">
+        <div
+          onClick={reshuffle}
+          className="px-4 py-3 text-[var(--accent)] text-[15px] hover:bg-[var(--hover)] transition-colors cursor-pointer border-t border-[var(--border)]"
+        >
           Show more
         </div>
       </div>

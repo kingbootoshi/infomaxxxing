@@ -124,8 +124,8 @@ export function ConceptCard({ concept }: { concept: Concept }) {
             {/* Expand/collapse indicator */}
             <button className="flex items-center gap-1 text-[var(--muted)] hover:text-[var(--accent)] transition-colors group text-[13px]">
               <div className="p-1.5 rounded-full group-hover:bg-[var(--accent)]/10 transition-colors">
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                  <path d="M1.751 10c-.036 0-.071 0-.107-.001a.97.97 0 01-.864-1.075l.917-9.176a.97.97 0 011.942.193l-.917 9.176a.97.97 0 01-.971.883zm5.207-.001a.97.97 0 01-.966-.88l-.621-7.44a.97.97 0 011.935-.162l.621 7.441a.97.97 0 01-.879 1.053c-.029.001-.058.001-.087.001zm5.203 0a.97.97 0 01-.071-.001.97.97 0 01-.895-1.039l.439-5.713a.97.97 0 011.933.149l-.439 5.713a.97.97 0 01-.967.891z" />
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`w-4 h-4 transition-transform ${expanded ? "rotate-180" : ""}`}>
+                  <path d="M6 9l6 6 6-6" />
                 </svg>
               </div>
               {expanded ? "Less" : "More"}

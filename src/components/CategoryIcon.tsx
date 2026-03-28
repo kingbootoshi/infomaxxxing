@@ -2,7 +2,7 @@
 
 import { Category } from "@/lib/types";
 
-const icons: Record<Category, JSX.Element> = {
+const icons: Record<Category, React.ReactNode> = {
   security: (
     <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
       <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
@@ -59,8 +59,10 @@ const icons: Record<Category, JSX.Element> = {
     </svg>
   ),
   programming: (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-      <path d="M8 3a2 2 0 00-2 2v4a2 2 0 01-2 2H3v2h1a2 2 0 012 2v4a2 2 0 002 2h2v-2H8v-5a2 2 0 00-1-1.73A2 2 0 008 10V5h2V3H8zm8 0a2 2 0 012 2v4a2 2 0 001 1.73A2 2 0 0016 14v5h-2v2h2a2 2 0 002-2v-4a2 2 0 012-2h1v-2h-1a2 2 0 01-2-2V5a2 2 0 00-2-2h-2v2h2z" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M7 8l-4 4 4 4" />
+      <path d="M17 8l4 4-4 4" />
+      <path d="M14 4l-4 16" />
     </svg>
   ),
   performance: (
