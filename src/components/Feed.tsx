@@ -11,9 +11,11 @@ interface FeedProps {
   onConceptSelect?: (concept: Concept) => void;
   isBookmarked?: (id: string) => boolean;
   onToggleBookmark?: (id: string) => void;
+  refreshTrigger?: number;
+  onRefreshComplete?: () => void;
 }
 
-export function Feed({ category, searchQuery, seenIds, onConceptSelect, isBookmarked, onToggleBookmark }: FeedProps) {
+export function Feed({ category, searchQuery, seenIds, onConceptSelect, isBookmarked, onToggleBookmark, refreshTrigger, onRefreshComplete }: FeedProps) {
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [cursor, setCursor] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -78,6 +80,39 @@ export function Feed({ category, searchQuery, seenIds, onConceptSelect, isBookma
     // Snapshot current seenIds for sorting new fetches
     if (seenIds) seenAtFetchRef.current = new Set(seenIds);
   }, [category]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pull-to-refresh: reset and re-fetch with fresh sort
+  useEffect(() => {
+    if (!refreshTrigger) return;
+    if (seenIds) seenAtFetchRef.current = new Set(seenIds);
+    setConcepts([]);
+    setCursor(0);
+    cursorRef.current = 0;
+    setLoading(true);
+    loadingRef.current = true;
+    const doRefresh = async () => {
+      try {
+        const params = new URLSearchParams({ cursor: "0", limit: "15" });
+        if (category) params.set("category", category);
+        const res = await fetch(`/api/concepts?${params}`);
+        const data = await res.json();
+        const snap = seenAtFetchRef.current;
+        const sorted = [...data.items].sort((a: Concept, b: Concept) => {
+          const aS = snap.has(a.id) ? 1 : 0;
+          const bS = snap.has(b.id) ? 1 : 0;
+          return aS - bS;
+        });
+        setConcepts(sorted);
+        setCursor(data.nextCursor);
+        cursorRef.current = data.nextCursor;
+      } finally {
+        setLoading(false);
+        loadingRef.current = false;
+        onRefreshComplete?.();
+      }
+    };
+    doRefresh();
+  }, [refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initial load + category change
   useEffect(() => {

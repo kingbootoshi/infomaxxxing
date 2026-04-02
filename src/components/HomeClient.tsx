@@ -13,6 +13,8 @@ import { AchievementToast } from "@/components/AchievementToast";
 import { useProgress } from "@/lib/useProgress";
 import { useBookmarks } from "@/lib/useBookmarks";
 
+const PULL_THRESHOLD = 80;
+
 interface HomeClientProps {
   categories: { category: Category; count: number }[];
   totalCount: number;
@@ -32,6 +34,10 @@ export function HomeClient({
   const [selectedConcept, setSelectedConcept] = useState<Concept | null>(null);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [bookmarkedConcepts, setBookmarkedConcepts] = useState<Concept[]>([]);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const refreshingRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const savedScrollRef = useRef(0);
   const progress = useProgress();
@@ -121,6 +127,78 @@ export function HomeClient({
     setShowBookmarks(true);
     setActiveCategory(null);
   }, []);
+
+  const handleRefreshComplete = useCallback(() => {
+    refreshingRef.current = false;
+    setIsRefreshing(false);
+    setPullDistance(0);
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, []);
+
+  // Pull-to-refresh touch handling (mobile)
+  useEffect(() => {
+    if (showBookmarks) return;
+    const el = scrollRef.current;
+    if (!el) return;
+
+    let startY = 0;
+    let canPull = false;
+    let pulling = false;
+    let dist = 0;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (el.scrollTop < 1 && !refreshingRef.current) {
+        startY = e.touches[0].clientY;
+        canPull = true;
+      } else {
+        canPull = false;
+      }
+      pulling = false;
+      dist = 0;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!canPull || refreshingRef.current) return;
+      const diff = e.touches[0].clientY - startY;
+      if (diff > 5 && el.scrollTop < 1) {
+        if (!pulling) pulling = true;
+        e.preventDefault();
+        dist = Math.min(diff * 0.4, 120);
+        setPullDistance(dist);
+      } else if (pulling && diff <= 0) {
+        dist = 0;
+        setPullDistance(0);
+      } else if (!pulling && diff < -5) {
+        canPull = false;
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (!pulling) return;
+      pulling = false;
+      canPull = false;
+      if (dist >= PULL_THRESHOLD) {
+        refreshingRef.current = true;
+        setIsRefreshing(true);
+        setPullDistance(50);
+        setRefreshTrigger((prev) => prev + 1);
+        if (navigator.vibrate) navigator.vibrate(10);
+      } else {
+        setPullDistance(0);
+      }
+      dist = 0;
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [showBookmarks]);
 
   return (
     <div className="flex justify-center h-dvh overflow-hidden">
@@ -246,6 +324,22 @@ export function HomeClient({
             </div>
           ) : (
             <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain min-h-0" style={{ touchAction: "pan-y", WebkitOverflowScrolling: "touch" }}>
+              {/* Pull-to-refresh indicator */}
+              <div
+                className="flex items-center justify-center overflow-hidden lg:hidden"
+                style={{
+                  height: isRefreshing ? 50 : pullDistance,
+                  transition: isRefreshing || pullDistance === 0 ? "height 300ms ease-out" : "none",
+                }}
+              >
+                <div
+                  className={`w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full ${isRefreshing ? "animate-spin" : ""}`}
+                  style={{
+                    opacity: isRefreshing ? 1 : Math.min(pullDistance / PULL_THRESHOLD, 1),
+                    transform: isRefreshing ? undefined : `rotate(${(pullDistance / PULL_THRESHOLD) * 360}deg)`,
+                  }}
+                />
+              </div>
               <Feed
                 category={activeCategory}
                 searchQuery={searchQuery}
@@ -253,6 +347,8 @@ export function HomeClient({
                 onConceptSelect={handleSelectConcept}
                 isBookmarked={bookmarks.isBookmarked}
                 onToggleBookmark={bookmarks.toggleBookmark}
+                refreshTrigger={refreshTrigger}
+                onRefreshComplete={handleRefreshComplete}
               />
               {/* Mobile bottom spacer so content isn't hidden behind sticky banner */}
               <div className="h-12 lg:hidden" />
