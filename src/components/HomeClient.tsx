@@ -8,8 +8,10 @@ import { Sidebar } from "@/components/Sidebar";
 import { Feed } from "@/components/Feed";
 import { RightSidebar } from "@/components/RightSidebar";
 import { ConceptDetail } from "@/components/ConceptDetail";
+import { ConceptCard } from "@/components/ConceptCard";
 import { AchievementToast } from "@/components/AchievementToast";
 import { useProgress } from "@/lib/useProgress";
+import { useBookmarks } from "@/lib/useBookmarks";
 
 interface HomeClientProps {
   categories: { category: Category; count: number }[];
@@ -28,9 +30,12 @@ export function HomeClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
   const [selectedConcept, setSelectedConcept] = useState<Concept | null>(null);
+  const [showBookmarks, setShowBookmarks] = useState(false);
+  const [bookmarkedConcepts, setBookmarkedConcepts] = useState<Concept[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const savedScrollRef = useRef(0);
   const progress = useProgress();
+  const bookmarks = useBookmarks();
 
   // Load post from ?post= query param on mount
   useEffect(() => {
@@ -62,6 +67,18 @@ export function HomeClient({
     return () => window.removeEventListener("popstate", onPopState);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fetch bookmarked concepts when bookmarks tab is active
+  useEffect(() => {
+    if (!showBookmarks || bookmarks.ids.length === 0) {
+      setBookmarkedConcepts([]);
+      return;
+    }
+    fetch(`/api/bookmarks?ids=${bookmarks.ids.join(",")}`)
+      .then((res) => res.json())
+      .then((data) => setBookmarkedConcepts(data.items || []))
+      .catch(() => {});
+  }, [showBookmarks, bookmarks.ids]);
 
   const handleSelectConcept = useCallback((concept: Concept) => {
     if (scrollRef.current) savedScrollRef.current = scrollRef.current.scrollTop;
@@ -95,14 +112,27 @@ export function HomeClient({
     }
   }, [progress]);
 
+  const handleCategoryChange = useCallback((category: Category | null) => {
+    setActiveCategory(category);
+    setShowBookmarks(false);
+  }, []);
+
+  const handleBookmarksTab = useCallback(() => {
+    setShowBookmarks(true);
+    setActiveCategory(null);
+  }, []);
+
   return (
     <div className="flex justify-center h-dvh overflow-hidden">
       {/* Left sidebar - X style nav */}
       <div className="w-[275px] shrink-0 border-r border-[var(--border)] hidden lg:block overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y" }}>
         <Sidebar
           activeCategory={activeCategory}
-          onCategoryChange={setActiveCategory}
+          onCategoryChange={handleCategoryChange}
           categories={categories}
+          showBookmarks={showBookmarks}
+          onShowBookmarks={handleBookmarksTab}
+          bookmarkCount={bookmarks.count}
         />
       </div>
 
@@ -110,7 +140,13 @@ export function HomeClient({
       <main className="w-full max-w-[600px] border-r border-[var(--border)] flex flex-col min-h-0">
         {/* Detail view - overlays feed but feed stays mounted */}
         {selectedConcept && (
-          <ConceptDetail concept={selectedConcept} onBack={handleBack} onSelectRelated={handleSelectRelated} />
+          <ConceptDetail
+            concept={selectedConcept}
+            onBack={handleBack}
+            onSelectRelated={handleSelectRelated}
+            isBookmarked={bookmarks.isBookmarked(selectedConcept.id)}
+            onToggleBookmark={bookmarks.toggleBookmark}
+          />
         )}
 
         {/* Feed - always mounted, hidden when viewing a post */}
@@ -140,30 +176,43 @@ export function HomeClient({
               {/* Row 2: X-style underlined tabs - scrollable */}
               <div className="flex overflow-x-auto border-b border-[var(--border)]" style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}>
                 <button
-                  onClick={() => setActiveCategory(null)}
+                  onClick={() => { setActiveCategory(null); setShowBookmarks(false); }}
                   className={`shrink-0 px-4 py-3 text-[14px] transition-colors relative ${
-                    activeCategory === null
+                    activeCategory === null && !showBookmarks
                       ? "text-[var(--foreground)] font-bold"
                       : "text-[var(--muted)] font-medium"
                   }`}
                 >
                   For You
-                  {activeCategory === null && (
+                  {activeCategory === null && !showBookmarks && (
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-[3px] bg-[var(--accent)] rounded-full" />
+                  )}
+                </button>
+                <button
+                  onClick={handleBookmarksTab}
+                  className={`shrink-0 px-4 py-3 text-[14px] transition-colors relative whitespace-nowrap ${
+                    showBookmarks
+                      ? "text-[var(--foreground)] font-bold"
+                      : "text-[var(--muted)] font-medium"
+                  }`}
+                >
+                  Bookmarks
+                  {showBookmarks && (
                     <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-[3px] bg-[var(--accent)] rounded-full" />
                   )}
                 </button>
                 {categories.map(({ category }) => (
                   <button
                     key={category}
-                    onClick={() => setActiveCategory(activeCategory === category ? null : category)}
+                    onClick={() => { setActiveCategory(activeCategory === category ? null : category); setShowBookmarks(false); }}
                     className={`shrink-0 px-4 py-3 text-[14px] transition-colors relative whitespace-nowrap ${
-                      activeCategory === category
+                      activeCategory === category && !showBookmarks
                         ? "text-[var(--foreground)] font-bold"
                         : "text-[var(--muted)] font-medium"
                     }`}
                   >
                     {CATEGORY_META[category].label}
-                    {activeCategory === category && (
+                    {activeCategory === category && !showBookmarks && (
                       <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-[3px] bg-[var(--accent)] rounded-full" />
                     )}
                   </button>
@@ -174,23 +223,52 @@ export function HomeClient({
             <h2 className="px-4 py-3 text-[20px] font-bold text-[var(--foreground)] hidden lg:block border-b border-[var(--border)]">
               {searchQuery?.trim()
                 ? "Search"
-                : activeCategory
-                  ? `${activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1).replace("-", " ")}`
-                  : "For You"}
+                : showBookmarks
+                  ? "Bookmarks"
+                  : activeCategory
+                    ? `${activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1).replace("-", " ")}`
+                    : "For You"}
             </h2>
           </div>
 
-          {/* Scrollable feed area */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain min-h-0" style={{ touchAction: "pan-y", WebkitOverflowScrolling: "touch" }}>
-            <Feed
-              category={activeCategory}
-              searchQuery={searchQuery}
-              seenIds={progress.seenIds}
-              onConceptSelect={handleSelectConcept}
-            />
-            {/* Mobile bottom spacer so content isn't hidden behind sticky banner */}
-            <div className="h-12 lg:hidden" />
-          </div>
+          {/* Scrollable area */}
+          {showBookmarks ? (
+            <div className="flex-1 overflow-y-auto overscroll-contain min-h-0" style={{ touchAction: "pan-y", WebkitOverflowScrolling: "touch" }}>
+              {bookmarkedConcepts.length === 0 ? (
+                <div className="py-16 text-center">
+                  <svg viewBox="0 0 24 24" className="w-8 h-8 mx-auto mb-3 text-[var(--muted)]">
+                    <path fill="currentColor" d="M4 4.5C4 3.12 5.119 2 6.5 2h11C18.881 2 20 3.12 20 4.5v18.44l-8-5.71-8 5.71V4.5zM6.5 4C6.224 4 6 4.22 6 4.5v14.56l6-4.29 6 4.29V4.5c0-.28-.224-.5-.5-.5h-11z" />
+                  </svg>
+                  <p className="text-[var(--foreground)] text-[15px] font-bold mb-1">Save posts for later</p>
+                  <p className="text-[var(--muted)] text-[13px]">Bookmark concepts to easily find them again.</p>
+                </div>
+              ) : (
+                bookmarkedConcepts.map((concept) => (
+                  <ConceptCard
+                    key={concept.id}
+                    concept={concept}
+                    onSelect={handleSelectConcept}
+                    isBookmarked={true}
+                    onToggleBookmark={bookmarks.toggleBookmark}
+                  />
+                ))
+              )}
+              <div className="h-12 lg:hidden" />
+            </div>
+          ) : (
+            <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain min-h-0" style={{ touchAction: "pan-y", WebkitOverflowScrolling: "touch" }}>
+              <Feed
+                category={activeCategory}
+                searchQuery={searchQuery}
+                seenIds={progress.seenIds}
+                onConceptSelect={handleSelectConcept}
+                isBookmarked={bookmarks.isBookmarked}
+                onToggleBookmark={bookmarks.toggleBookmark}
+              />
+              {/* Mobile bottom spacer so content isn't hidden behind sticky banner */}
+              <div className="h-12 lg:hidden" />
+            </div>
+          )}
         </div>
       </main>
 

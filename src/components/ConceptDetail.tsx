@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Concept, CATEGORY_META } from "@/lib/types";
 import { CategoryIcon } from "./CategoryIcon";
 
@@ -20,11 +20,87 @@ interface ConceptDetailProps {
   concept: Concept;
   onBack: () => void;
   onSelectRelated?: (term: string) => void;
+  isBookmarked?: boolean;
+  onToggleBookmark?: (id: string) => void;
 }
 
-export function ConceptDetail({ concept, onBack, onSelectRelated }: ConceptDetailProps) {
+export function ConceptDetail({ concept, onBack, onSelectRelated, isBookmarked, onToggleBookmark }: ConceptDetailProps) {
   const meta = CATEGORY_META[concept.category];
   const [copied, setCopied] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const onBackRef = useRef(onBack);
+  onBackRef.current = onBack;
+
+  // Reset transform when concept changes
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.style.transform = "";
+      containerRef.current.style.opacity = "";
+      containerRef.current.style.transition = "";
+    }
+  }, [concept.id]);
+
+  // Swipe right to go back (mobile)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    let startX = 0;
+    let startY = 0;
+    let direction: "horizontal" | "vertical" | null = null;
+    let currentX = 0;
+
+    const onTouchStart = (e: TouchEvent) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      direction = null;
+      currentX = 0;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+
+      if (direction === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+        direction = Math.abs(dx) > Math.abs(dy) && dx > 0 ? "horizontal" : "vertical";
+      }
+
+      if (direction === "horizontal") {
+        e.preventDefault();
+        currentX = Math.max(0, dx);
+        el.style.transform = `translateX(${currentX}px)`;
+        el.style.opacity = `${Math.max(0.3, 1 - currentX / 400)}`;
+        el.style.transition = "none";
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (direction === "horizontal") {
+        if (currentX > 80) {
+          el.style.transition = "transform 0.3s ease-out, opacity 0.3s ease-out";
+          el.style.transform = `translateX(${window.innerWidth}px)`;
+          el.style.opacity = "0";
+          setTimeout(() => onBackRef.current(), 300);
+        } else {
+          el.style.transition = "transform 0.3s ease-out, opacity 0.3s ease-out";
+          el.style.transform = "";
+          el.style.opacity = "";
+        }
+      }
+      direction = null;
+      currentX = 0;
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+    };
+  }, []);
 
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -43,8 +119,8 @@ export function ConceptDetail({ concept, onBack, onSelectRelated }: ConceptDetai
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header with back arrow - like X's "Post" header */}
+    <div ref={containerRef} className="flex flex-col h-full bg-black">
+      {/* Header with back arrow */}
       <div className="shrink-0 px-4 py-3 flex items-center gap-6 border-b border-[var(--border)] bg-black/80 backdrop-blur-md sticky top-0 z-10">
         <button
           onClick={onBack}
@@ -82,7 +158,7 @@ export function ConceptDetail({ concept, onBack, onSelectRelated }: ConceptDetai
             </div>
           </div>
 
-          {/* Main content - larger text like X detail view */}
+          {/* Main content */}
           <p className="text-[var(--foreground)] text-[17px] leading-relaxed">
             {concept.oneLiner}
           </p>
@@ -103,25 +179,48 @@ export function ConceptDetail({ concept, onBack, onSelectRelated }: ConceptDetai
             ))}
           </div>
 
-          {/* Info row - category, related count, share */}
+          {/* Info row - category, related count, bookmark, share */}
           <div className="flex items-center gap-1 mt-3 pt-3 pb-3 border-t border-b border-[var(--border)] text-[var(--muted)] text-[15px]">
             <span style={{ color: meta.color }} className="font-medium">{meta.label}</span>
             <span className="mx-1">&middot;</span>
             <span>{concept.relatedTerms.length} related</span>
-            <button
-              onClick={handleShare}
-              className="ml-auto text-[var(--muted)] hover:text-[var(--accent)] transition-colors p-1.5 rounded-full hover:bg-[var(--accent)]/10 relative"
-            >
-              {copied ? (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
-                  <polyline points="20 6 9 17 4 12" />
+            <div className="ml-auto flex items-center gap-0.5">
+              {/* Bookmark button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleBookmark?.(concept.id);
+                }}
+                className={`p-1.5 rounded-full transition-colors ${
+                  isBookmarked
+                    ? "text-[var(--accent)]"
+                    : "text-[var(--muted)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10"
+                }`}
+              >
+                <svg viewBox="0 0 24 24" className="w-[18px] h-[18px]">
+                  {isBookmarked ? (
+                    <path fill="currentColor" d="M4 4.5C4 3.12 5.119 2 6.5 2h11C18.881 2 20 3.12 20 4.5v18.44l-8-5.71-8 5.71V4.5z" />
+                  ) : (
+                    <path fill="currentColor" d="M4 4.5C4 3.12 5.119 2 6.5 2h11C18.881 2 20 3.12 20 4.5v18.44l-8-5.71-8 5.71V4.5zM6.5 4C6.224 4 6 4.22 6 4.5v14.56l6-4.29 6 4.29V4.5c0-.28-.224-.5-.5-.5h-11z" />
+                  )}
                 </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-[18px] h-[18px]">
-                  <path d="M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41l-3.3 3.3-1.41-1.42L12 2.59zM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5C4.11 21 3 19.88 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2z" />
-                </svg>
-              )}
-            </button>
+              </button>
+              {/* Share button */}
+              <button
+                onClick={handleShare}
+                className="text-[var(--muted)] hover:text-[var(--accent)] transition-colors p-1.5 rounded-full hover:bg-[var(--accent)]/10 relative"
+              >
+                {copied ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-[18px] h-[18px]">
+                    <path d="M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41l-3.3 3.3-1.41-1.42L12 2.59zM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5C4.11 21 3 19.88 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2z" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 

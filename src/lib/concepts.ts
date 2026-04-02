@@ -74,6 +74,11 @@ export function getConceptById(id: string): Concept | undefined {
   return concepts.find((c) => c.id === id);
 }
 
+export function getConceptsByIds(ids: string[]): Concept[] {
+  const idSet = new Set(ids);
+  return concepts.filter((c) => idSet.has(c.id));
+}
+
 export function searchConcepts(query: string): Concept[] {
   const q = query.toLowerCase();
   return concepts.filter(

@@ -25,9 +25,11 @@ function VerifiedBadge({ color }: { color: string }) {
 interface ConceptCardProps {
   concept: Concept;
   onSelect?: (concept: Concept) => void;
+  isBookmarked?: boolean;
+  onToggleBookmark?: (id: string) => void;
 }
 
-export function ConceptCard({ concept, onSelect }: ConceptCardProps) {
+export function ConceptCard({ concept, onSelect, isBookmarked, onToggleBookmark }: ConceptCardProps) {
   const meta = CATEGORY_META[concept.category];
 
   return (
@@ -102,6 +104,27 @@ export function ConceptCard({ concept, onSelect }: ConceptCardProps) {
             <span className="text-[13px] text-[var(--muted)]">
               {concept.relatedTerms.length} related
             </span>
+
+            {/* Bookmark button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleBookmark?.(concept.id);
+              }}
+              className={`flex items-center transition-colors group ${
+                isBookmarked ? "text-[var(--accent)]" : "text-[var(--muted)] hover:text-[var(--accent)]"
+              }`}
+            >
+              <div className="p-1.5 rounded-full group-hover:bg-[var(--accent)]/10 transition-colors">
+                <svg viewBox="0 0 24 24" className="w-4 h-4">
+                  {isBookmarked ? (
+                    <path fill="currentColor" d="M4 4.5C4 3.12 5.119 2 6.5 2h11C18.881 2 20 3.12 20 4.5v18.44l-8-5.71-8 5.71V4.5z" />
+                  ) : (
+                    <path fill="currentColor" d="M4 4.5C4 3.12 5.119 2 6.5 2h11C18.881 2 20 3.12 20 4.5v18.44l-8-5.71-8 5.71V4.5zM6.5 4C6.224 4 6 4.22 6 4.5v14.56l6-4.29 6 4.29V4.5c0-.28-.224-.5-.5-.5h-11z" />
+                  )}
+                </svg>
+              </div>
+            </button>
 
             {/* Share button */}
             <button

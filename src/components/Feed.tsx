@@ -9,9 +9,11 @@ interface FeedProps {
   searchQuery?: string;
   seenIds?: Set<string>;
   onConceptSelect?: (concept: Concept) => void;
+  isBookmarked?: (id: string) => boolean;
+  onToggleBookmark?: (id: string) => void;
 }
 
-export function Feed({ category, searchQuery, seenIds, onConceptSelect }: FeedProps) {
+export function Feed({ category, searchQuery, seenIds, onConceptSelect, isBookmarked, onToggleBookmark }: FeedProps) {
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [cursor, setCursor] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -138,7 +140,7 @@ export function Feed({ category, searchQuery, seenIds, onConceptSelect }: FeedPr
     <div className="feed-container">
       {/* Cards */}
       {displayedConcepts.map((concept, idx) => (
-        <ConceptCard key={`${concept.id}-${idx}`} concept={concept} onSelect={onConceptSelect} />
+        <ConceptCard key={`${concept.id}-${idx}`} concept={concept} onSelect={onConceptSelect} isBookmarked={isBookmarked?.(concept.id)} onToggleBookmark={onToggleBookmark} />
       ))}
 
       {/* Search empty state */}
